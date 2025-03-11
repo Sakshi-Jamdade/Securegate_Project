@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureGate+ Guard Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- DataTables -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css"/>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.bootstrap5.min.css"/>
+    
+    <style>
+        :root {
+            --primary-color: #0A2647;
+            --secondary-color: #144272;
+            --accent-color: #205295;
+            --highlight-color: #2C74B3;
+            --success-color: #2ecc71;
+            --warning-color: #f1c40f;
+            --danger-color: #e74c3c;
+            --light-bg: #f8f9fa;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--light-bg);
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            width: 280px;
+            background: linear-gradient(to bottom, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding-top: 20px;
+            transition: var(--transition);
+            z-index: 1000;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.85);
+            padding: 12px 20px;
+            margin: 4px 16px;
+            border-radius: 10px;
+            transition: var(--transition);
+            font-size: 0.95rem;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background: var(--accent-color);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .sidebar .nav-link i {
+            width: 24px;
+            text-align: center;
+            margin-right: 8px;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 280px;
+            padding: 20px;
+            transition: var(--transition);
+        }
+
+        /* Navbar Styles */
+        .guard-navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            border-radius: 15px;
+        }
+
+        .guard-profile img {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-color);
+            transition: var(--transition);
+        }
+
+        .guard-profile img:hover {
+            transform: scale(1.05);
+        }
+
+        .profile-dropdown {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 280px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .profile-dropdown.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        /* Card Styles */
+        .dashboard-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            padding: 25px;
+            margin-bottom: 25px;
+            transition: var(--transition);
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        /* Stats Cards */
+        .stats-card {
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1));
+            pointer-events: none;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .stats-card h3 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .stats-card p {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .stats-card i {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            font-size: 2.5rem;
+            opacity: 0.2;
+        }
+
+        /* Table Styles */
+        .custom-table {
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .custom-table th {
+            background: var(--primary-color);
+            color: white;
+            padding: 15px;
+            font-weight: 500;
+        }
+
+        .custom-table td {
+            padding: 12px 15px;
+            vertical-align: middle;
+        }
+
+        .custom-table tbody tr {
+            transition: var(--transition);
+        }
+
+        .custom-table tbody tr:hover {
+            background: var(--light-bg);
+            transform: scale(1.01);
+        }
+
+        /* Status Badges */
+        .badge {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .badge-pending {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .badge-approved {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .badge-denied {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        /* Visitor Form */
+        .visitor-form {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        /* ID Verification Modal */
+        .verification-container {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .verification-image {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        /* Animations */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 250px;
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .stats-card h3 {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="text-center mb-4">
+            <i class="fas fa-shield-alt fa-2x mb-2"></i>
+            <h4>SecureGate+</h4>
+            <small>Guard Dashboard</small>
+        </div>
+        <nav class="nav flex-column">
+            <a class="nav-link active" href="#dashboard">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+            <a class="nav-link" href="#new-visitor">
+                <i class="fas fa-user-plus"></i> New Visitor
+            </a>
+            <a class="nav-link" href="#active-visitors">
+                <i class="fas fa-users"></i> Active Visitors
+            </a>
+            <a class="nav-link" href="#pre-approved">
+                <i class="fas fa-clipboard-check"></i> Pre-approved
+            </a>
+            <a class="nav-link" href="#visitor-records">
+                <i class="fas fa-history"></i> Visitor Records
+            </a>
+            <a class="nav-link" href="#verify-resident">
+                <i class="fas fa-id-card"></i> Verify Resident
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Navbar -->
+        <div class="guard-navbar d-flex justify-content-between align-items-center">
+            <button class="btn d-lg-none" id="sidebarToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="d-flex align-items-center">
+                <h4 class="mb-0">Guard Dashboard</h4>
+            </div>
+            <div class="guard-profile">
+                <img src="https://via.placeholder.com/45" alt="Guard" id="profileToggle">
+                <div class="profile-dropdown">
+                    <div class="text-center mb-3">
+                        <img src="https://via.placeholder.com/90" alt="Guard" class="mb-2" style="width: 90px; height: 90px; border-radius: 50%;">
+                        <h5 class="mb-1" id="guardName">Loading...</h5>
+                        <span class="badge bg-primary">Security Guard</span>
+                    </div>
+                    <div class="border-top pt-3 mt-3">
+                        <p class="mb-2"><i class="fas fa-id-badge me-2"></i>Guard ID: <span id="guardId">Loading...</span></p>
+                        <p class="mb-2"><i class="fas fa-envelope me-2"></i><span id="guardEmail">Loading...</span></p>
+                        <p class="mb-2"><i class="fas fa-phone me-2"></i><span id="guardPhone">Loading...</span></p>
+                        <p class="mb-2"><i class="fas fa-clock me-2"></i>Shift: <span id="guardShift">Loading...</span></p>
+                    </div>
+                    <div class="d-grid gap-2 mt-3">
+                        <button class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-user-edit me-2"></i>Edit Profile
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <i class="fas fa-users"></i>
+                    <h3 id="activeVisitorsCount">0</h3>
+                    <p class="mb-0">Active Visitors</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <i class="fas fa-clock"></i>
+                    <h3 id="todayEntriesCount">0</h3>
+                    <p class="mb-0">Today's Entries</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <i class="fas fa-clipboard-check"></i>
+                    <h3 id="preApprovedCount">0</h3>
+                    <p class="mb-0">Pre-approved</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <i class="fas fa-clock-rotate-left"></i>
+                    <h3 id="pendingApprovalsCount">0</h3>
+                    <p class="mb-0">Pending Approvals</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- New Visitor Form -->
+        <div class="dashboard-card" id="new-visitor">
+            <h5 class="mb-4"><i class="fas fa-user-plus me-2"></i>New Visitor Entry</h5>
+            <form id="newVisitorForm" class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Visitor Name</label>
+                    <input type="text" class="form-control" name="visitorName" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Contact Number</label>
+                    <input type="tel" class="form-control" name="contactNumber" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Flat Number</label>
+                    <input type="text" class="form-control" name="flatNumber" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Purpose of Visit</label>
+                    <input type="text" class="form-control" name="purpose" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">ID Proof</label>
+                    <input type="file" class="form-control" name="idProof" accept="image/*" required>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fab fa-whatsapp me-2"></i>Send Approval Request
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Active Visitors -->
+        <div class="dashboard-card" id="active-visitors">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5><i class="fas fa-users me-2"></i>Active Visitors</h5>
+                <button class="btn btn-outline-primary btn-sm" id="refreshActiveVisitors">
+                    <i class="fas fa-sync-alt me-2"></i>Refresh
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table custom-table" id="activeVisitorsTable">
+                    <thead>
+                        <tr>
+                            <th>Visitor</th>
+                            <th>Flat No.</th>
+                            <th>Purpose</th>
+                            <th>Entry Time</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activeVisitorsTableBody">
+                        <!-- Active visitors will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pre-approved Requests -->
+        <div class="dashboard-card" id="pre-approved">
+            <h5 class="mb-4"><i class="fas fa-clipboard-check me-2"></i>Pre-approved Requests</h5>
+            <div class="table-responsive">
+                <table class="table custom-table" id="preApprovedTable">
+                    <thead>
+                        <tr>
+                            <th>Visitor Name</th>
+                            <th>Flat No.</th>
+                            <th>Expected Time</th>
+                            <th>Purpose</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="preApprovedTableBody">
+                        <!-- Pre-approved visitors will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Visitor Records -->
+        <div class="dashboard-card" id="visitor-records">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5><i class="fas fa-history me-2"></i>Visitor Records</h5>
+                <div class="btn-group" id="recordsTimeFilter">
+                    <button class="btn btn-outline-primary btn-sm active" data-filter="today">Today</button>
+                    <button class="btn btn-outline-primary btn-sm" data-filter="week">Week</button>
+                    <button class="btn btn-outline-primary btn-sm" data-filter="month">Month</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table custom-table" id="visitorRecordsTable">
+                    <thead>
+                        <tr>
+                            <th>Visitor Name</th>
+                            <th>Flat No.</th>
+                            <th>Purpose</th>
+                            <th>Entry Time</th>
+                            <th>Exit Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="visitorRecordsTableBody">
+                        <!-- Visitor records will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ID Verification Modal -->
+    <div class="modal fade" id="idVerificationModal">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Verify Identity</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="verification-container">
+                        <div>
+                            <h6>ID Proof</h6>
+                            <img src="/placeholder.svg" alt="ID Proof" class="verification-image" id="idProofImage">
+                        </div>
+                        <div>
+                            <h6>Live Photo</h6>
+                            <img src="/placeholder.svg" alt="Live Photo" class="verification-image" id="livePhotoImage">
+                        </div>
+                    </div>
+                    <div class="verification-details">
+                        <h6>Details</h6>
+                        <p><strong>Name:</strong> <span id="verificationName"></span></p>
+                        <p><strong>ID Type:</strong> <span id="verificationType"></span></p>
+                        <p><strong>ID Number:</strong> <span id="verificationNumber"></span></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-success" id="approveVerificationBtn">
+                        <i class="fas fa-check me-2"></i>Verify & Approve
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
+    <script>
+        // Initialize DataTables
+        let activeVisitorsTable, preApprovedTable, visitorRecordsTable;
+
+        $(document).ready(function() {
+            // Initialize DataTables
+            activeVisitorsTable = $('#activeVisitorsTable').DataTable({
+                pageLength: 10,
+                responsive: true
+            });
+
+            preApprovedTable = $('#preApprovedTable').DataTable({
+                pageLength: 10,
+                responsive: true
+            });
+
+            visitorRecordsTable = $('#visitorRecordsTable').DataTable({
+                pageLength: 10,
+                responsive: true
+            });
+
+            // Load initial data
+            loadGuardProfile();
+            loadDashboardStats();
+            loadActiveVisitors();
+            loadPreApprovedVisitors();
+            loadVisitorRecords('today');
+
+            // Set up event listeners
+            setupEventListeners();
+        });
+
+        // Toggle Sidebar on Mobile
+        document.getElementById('sidebarToggle').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.toggle('show');
+        });
+
+        // Toggle Profile Dropdown
+        document.getElementById('profileToggle').addEventListener('click', function(e) {
+            e.stopPropagation();
+            document.querySelector('.profile-dropdown').classList.toggle('show');
+        });
+
+        // Close Profile Dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.guard-profile')) {
+                document.querySelector('.profile-dropdown').classList.remove('show');
+            }
+        });
+
+        // Setup Event Listeners
+        function setupEventListeners() {
+            // New Visitor Form
+            $('#newVisitorForm').on('submit', function(e) {
+                e.preventDefault();
+                addNewVisitor(this);
+            });
+
+            // Refresh buttons
+            $('#refreshActiveVisitors').on('click', loadActiveVisitors);
+
+            // Time filter for records
+            $('#recordsTimeFilter button').on('click', function() {
+                $('#recordsTimeFilter button').removeClass('active');
+                $(this).addClass('active');
+                loadVisitorRecords($(this).data('filter'));
+            });
+
+            // Logout button
+            $('#logoutBtn').on('click', function() {
+                window.location.href = '/logout';
+            });
+
+            // Approve verification button
+            $('#approveVerificationBtn').on('click', function() {
+                const visitorId = $(this).data('visitor-id');
+                approveVisitor(visitorId);
+            });
+        }
+
+        // Load Guard Profile
+        function loadGuardProfile() {
+            fetch('/guard/profile')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        $('#guardName').text(data.guard.name);
+                        $('#guardId').text(data.guard.id);
+                        $('#guardEmail').text(data.guard.email);
+                        $('#guardPhone').text(data.guard.phone);
+                        $('#guardShift').text(data.guard.shift);
+                    } else {
+                        console.error('Failed to load guard profile:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading guard profile:', error);
+                });
+        }
+
+        // Load Dashboard Stats
+        function loadDashboardStats() {
+            fetch('/guard/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        $('#activeVisitorsCount').text(data.stats.activeVisitors);
+                        $('#todayEntriesCount').text(data.stats.todayEntries);
+                        $('#preApprovedCount').text(data.stats.preApproved);
+                        $('#pendingApprovalsCount').text(data.stats.pendingApprovals);
+                    } else {
+                        console.error('Failed to load stats:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading stats:', error);
+                });
+        }
+
+        // Load Active Visitors
+        function loadActiveVisitors() {
+            fetch('/guard/active-visitors')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Clear existing table data
+                        activeVisitorsTable.clear().draw();
+
+                        // Add new data
+                        data.visitors.forEach(visitor => {
+                            activeVisitorsTable.row.add([
+                                `<div class="d-flex align-items-center">
+                                    <img src="${visitor.photo || 'https://via.placeholder.com/32'}" class="rounded-circle me-2" width="32" height="32">
+                                    <div>
+                                        <div class="fw-bold">${visitor.name}</div>
+                                        <small class="text-muted">${visitor.phone}</small>
+                                    </div>
+                                </div>`,
+                                visitor.flatNumber,
+                                visitor.purpose,
+                                visitor.entryTime,
+                                `<span class="badge badge-${visitor.status.toLowerCase()}">${visitor.status}</span>`,
+                                `<button class="btn btn-sm btn-info me-1" onclick="viewIDProof('${visitor.id}')">
+                                    <i class="fas fa-id-card"></i>
+                                </button>
+                                <button class="btn btn-sm btn-success me-1" onclick="markExit('${visitor.id}')">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="denyVisitor('${visitor.id}')">
+                                    <i class="fas fa-times"></i>
+                                </button>`
+                            ]).draw(false);
+                        });
+
+                        // Draw the table
+                        activeVisitorsTable.draw();
+
+                        // Update stats
+                        $('#activeVisitorsCount').text(data.visitors.length);
+                    } else {
+                        console.error('Failed to load active visitors:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading active visitors:', error);
+                });
+        }
+
+        // Load Pre-approved Visitors
+        function loadPreApprovedVisitors() {
+            fetch('/guard/pre-approved')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Clear existing table data
+                        preApprovedTable.clear().draw();
+
+                        // Add new data
+                        data.visitors.forEach(visitor => {
+                            preApprovedTable.row.add([
+                                visitor.name,
+                                visitor.flatNumber,
+                                visitor.expectedTime,
+                                visitor.purpose,
+                                `<button class="btn btn-sm btn-success" onclick="markEntry('${visitor.id}')">
+                                    <i class="fas fa-check me-2"></i>Mark Entry
+                                </button>`
+                            ]).draw(false);
+                        });
+
+                        // Draw the table
+                        preApprovedTable.draw();
+
+                        // Update stats
+                        $('#preApprovedCount').text(data.visitors.length);
+                    } else {
+                        console.error('Failed to load pre-approved visitors:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading pre-approved visitors:', error);
+                });
+        }
+
+        // Load Visitor Records
+        function loadVisitorRecords(timeFilter) {
+            fetch(`/guard/visitor-records?filter=${timeFilter}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Clear existing table data
+                        visitorRecordsTable.clear().draw();
+
+                        // Add new data
+                        data.records.forEach(record => {
+                            visitorRecordsTable.row.add([
+                                record.visitorName,
+                                record.flatNumber,
+                                record.purpose,
+                                record.entryTime,
+                                record.exitTime || '-',
+                                `<span class="badge badge-${record.status.toLowerCase()}">${record.status}</span>`
+                            ]).draw(false);
+                        });
+
+                        // Draw the table
+                        visitorRecordsTable.draw();
+                    } else {
+                        console.error('Failed to load visitor records:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading visitor records:', error);
+                });
+        }
+
+        // Add New Visitor
+        function addNewVisitor(form) {
+            const formData = new FormData(form);
+
+            fetch('/guard/add-visitor', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('WhatsApp message sent to flat owner. Awaiting approval...');
+                    form.reset();
+                    loadActiveVisitors();
+                    loadDashboardStats();
+                } else {
+                    alert('Failed to add visitor: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error adding visitor:', error);
+                alert('An error occurred while adding the visitor');
+            });
+        }
+
+        // View ID Proof
+        function viewIDProof(visitorId) {
+            fetch(`/guard/visitor/${visitorId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const visitor = data.visitor;
+                        $('#idProofImage').attr('src', visitor.idProofUrl);
+                        $('#livePhotoImage').attr('src', visitor.photoUrl || 'https://via.placeholder.com/150');
+                        $('#verificationName').text(visitor.name);
+                        $('#verificationType').text(visitor.idType);
+                        $('#verificationNumber').text(visitor.idNumber);
+                        $('#approveVerificationBtn').data('visitor-id', visitorId);
+
+                        const modal = new bootstrap.Modal(document.getElementById('idVerificationModal'));
+                        modal.show();
+                    } else {
+                        alert('Failed to load visitor details: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading visitor details:', error);
+                    alert('An error occurred while loading visitor details');
+                });
+        }
+
+        // Mark Visitor Exit
+        function markExit(visitorId) {
+            if (confirm('Confirm visitor exit?')) {
+                fetch(`/guard/mark-exit/${visitorId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Visitor exit marked successfully');
+                        loadActiveVisitors();
+                        loadVisitorRecords($('#recordsTimeFilter button.active').data('filter'));
+                        loadDashboardStats();
+                    } else {
+                        alert('Failed to mark exit: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error marking exit:', error);
+                    alert('An error occurred while marking exit');
+                });
+            }
+        }
+
+        // Mark Pre-approved Entry
+        function markEntry(requestId) {
+            if (confirm('Confirm visitor entry?')) {
+                fetch(`/guard/mark-entry/${requestId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Visitor entry marked successfully');
+                        loadPreApprovedVisitors();
+                        loadActiveVisitors();
+                        loadDashboardStats();
+                    } else {
+                        alert('Failed to mark entry: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error marking entry:', error);
+                    alert('An error occurred while marking entry');
+                });
+            }
+        }
+
+        // Deny Visitor
+        function denyVisitor(visitorId) {
+            if (confirm('Are you sure you want to deny this visitor?')) {
+                fetch(`/guard/deny-visitor/${visitorId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Visitor denied successfully');
+                        loadActiveVisitors();
+                        loadDashboardStats();
+                    } else {
+                        alert('Failed to deny visitor: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error denying visitor:', error);
+                    alert('An error occurred while denying visitor');
+                });
+            }
+        }
+
+        // Approve Visitor
+        function approveVisitor(visitorId) {
+            fetch(`/guard/approve-visitor/${visitorId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Identity verified successfully');
+                    bootstrap.Modal.getInstance(document.getElementById('idVerificationModal                    bootstrap.Modal.getInstance(document.getElementById('idVerificationModal')).hide();
+                    loadActiveVisitors();
+                } else {
+                    alert('Failed to verify visitor: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error verifying visitor:', error);
+                alert('An error occurred while verifying visitor');
+            });
+        }
+
+        // Add smooth scrolling to all links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+
