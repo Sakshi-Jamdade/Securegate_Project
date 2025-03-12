@@ -556,394 +556,371 @@
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
-        // Initialize DataTables
-        let activeVisitorsTable, preApprovedTable, visitorRecordsTable;
+       // Initialize DataTables
+            let activeVisitorsTable, preApprovedTable, visitorRecordsTable;
 
-        $(document).ready(function() {
-            // Initialize DataTables
-            activeVisitorsTable = $('#activeVisitorsTable').DataTable({
-                pageLength: 10,
-                responsive: true
-            });
-
-            preApprovedTable = $('#preApprovedTable').DataTable({
-                pageLength: 10,
-                responsive: true
-            });
-
-            visitorRecordsTable = $('#visitorRecordsTable').DataTable({
-                pageLength: 10,
-                responsive: true
-            });
-
-            // Load initial data
-            loadGuardProfile();
-            loadDashboardStats();
-            loadActiveVisitors();
-            loadPreApprovedVisitors();
-            loadVisitorRecords('today');
-
-            // Set up event listeners
-            setupEventListeners();
-        });
-
-        // Toggle Sidebar on Mobile
-        document.getElementById('sidebarToggle').addEventListener('click', function() {
-            document.querySelector('.sidebar').classList.toggle('show');
-        });
-
-        // Toggle Profile Dropdown
-        document.getElementById('profileToggle').addEventListener('click', function(e) {
-            e.stopPropagation();
-            document.querySelector('.profile-dropdown').classList.toggle('show');
-        });
-
-        // Close Profile Dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.guard-profile')) {
-                document.querySelector('.profile-dropdown').classList.remove('show');
-            }
-        });
-
-        // Setup Event Listeners
-        function setupEventListeners() {
-            // New Visitor Form
-            $('#newVisitorForm').on('submit', function(e) {
-                e.preventDefault();
-                addNewVisitor(this);
-            });
-
-            // Refresh buttons
-            $('#refreshActiveVisitors').on('click', loadActiveVisitors);
-
-            // Time filter for records
-            $('#recordsTimeFilter button').on('click', function() {
-                $('#recordsTimeFilter button').removeClass('active');
-                $(this).addClass('active');
-                loadVisitorRecords($(this).data('filter'));
-            });
-
-            // Logout button
-            $('#logoutBtn').on('click', function() {
-                window.location.href = '/logout';
-            });
-
-            // Approve verification button
-            $('#approveVerificationBtn').on('click', function() {
-                const visitorId = $(this).data('visitor-id');
-                approveVisitor(visitorId);
-            });
-        }
-
-        // Load Guard Profile
-        function loadGuardProfile() {
-            fetch('/guard/profile')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        $('#guardName').text(data.guard.name);
-                        $('#guardId').text(data.guard.id);
-                        $('#guardEmail').text(data.guard.email);
-                        $('#guardPhone').text(data.guard.phone);
-                        $('#guardShift').text(data.guard.shift);
-                    } else {
-                        console.error('Failed to load guard profile:', data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading guard profile:', error);
+            $(document).ready(function() {
+                // Initialize DataTables
+                activeVisitorsTable = $('#activeVisitorsTable').DataTable({
+                    pageLength: 10,
+                    responsive: true
                 });
-        }
 
-        // Load Dashboard Stats
-        function loadDashboardStats() {
-            fetch('/guard/stats')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        $('#activeVisitorsCount').text(data.stats.activeVisitors);
-                        $('#todayEntriesCount').text(data.stats.todayEntries);
-                        $('#preApprovedCount').text(data.stats.preApproved);
-                        $('#pendingApprovalsCount').text(data.stats.pendingApprovals);
-                    } else {
-                        console.error('Failed to load stats:', data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading stats:', error);
+                preApprovedTable = $('#preApprovedTable').DataTable({
+                    pageLength: 10,
+                    responsive: true
                 });
-        }
 
-        // Load Active Visitors
-        function loadActiveVisitors() {
-            fetch('/guard/active-visitors')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Clear existing table data
-                        activeVisitorsTable.clear().draw();
-
-                        // Add new data
-                        data.visitors.forEach(visitor => {
-                            activeVisitorsTable.row.add([
-                                `<div class="d-flex align-items-center">
-                                    <img src="${visitor.photo || 'https://via.placeholder.com/32'}" class="rounded-circle me-2" width="32" height="32">
-                                    <div>
-                                        <div class="fw-bold">${visitor.name}</div>
-                                        <small class="text-muted">${visitor.phone}</small>
-                                    </div>
-                                </div>`,
-                                visitor.flatNumber,
-                                visitor.purpose,
-                                visitor.entryTime,
-                                `<span class="badge badge-${visitor.status.toLowerCase()}">${visitor.status}</span>`,
-                                `<button class="btn btn-sm btn-info me-1" onclick="viewIDProof('${visitor.id}')">
-                                    <i class="fas fa-id-card"></i>
-                                </button>
-                                <button class="btn btn-sm btn-success me-1" onclick="markExit('${visitor.id}')">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger" onclick="denyVisitor('${visitor.id}')">
-                                    <i class="fas fa-times"></i>
-                                </button>`
-                            ]).draw(false);
-                        });
-
-                        // Draw the table
-                        activeVisitorsTable.draw();
-
-                        // Update stats
-                        $('#activeVisitorsCount').text(data.visitors.length);
-                    } else {
-                        console.error('Failed to load active visitors:', data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading active visitors:', error);
+                visitorRecordsTable = $('#visitorRecordsTable').DataTable({
+                    pageLength: 10,
+                    responsive: true
                 });
-        }
 
-        // Load Pre-approved Visitors
-        function loadPreApprovedVisitors() {
-            fetch('/guard/pre-approved')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Clear existing table data
-                        preApprovedTable.clear().draw();
+                // Load initial data
+                loadGuardProfile();
+                loadDashboardStats();
+                loadActiveVisitors();
+                loadPreApprovedVisitors();
+                loadVisitorRecords('today');
 
-                        // Add new data
-                        data.visitors.forEach(visitor => {
-                            preApprovedTable.row.add([
-                                visitor.name,
-                                visitor.flatNumber,
-                                visitor.expectedTime,
-                                visitor.purpose,
-                                `<button class="btn btn-sm btn-success" onclick="markEntry('${visitor.id}')">
-                                    <i class="fas fa-check me-2"></i>Mark Entry
-                                </button>`
-                            ]).draw(false);
-                        });
+                // Set up event listeners
+                setupEventListeners();
+            });
 
-                        // Draw the table
-                        preApprovedTable.draw();
+            // Toggle Sidebar on Mobile
+            document.getElementById('sidebarToggle').addEventListener('click', function() {
+                document.querySelector('.sidebar').classList.toggle('show');
+            });
 
-                        // Update stats
-                        $('#preApprovedCount').text(data.visitors.length);
-                    } else {
-                        console.error('Failed to load pre-approved visitors:', data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading pre-approved visitors:', error);
-                });
-        }
+            // Toggle Profile Dropdown
+            document.getElementById('profileToggle').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.querySelector('.profile-dropdown').classList.toggle('show');
+            });
 
-        // Load Visitor Records
-        function loadVisitorRecords(timeFilter) {
-            fetch(`/guard/visitor-records?filter=${timeFilter}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Clear existing table data
-                        visitorRecordsTable.clear().draw();
-
-                        // Add new data
-                        data.records.forEach(record => {
-                            visitorRecordsTable.row.add([
-                                record.visitorName,
-                                record.flatNumber,
-                                record.purpose,
-                                record.entryTime,
-                                record.exitTime || '-',
-                                `<span class="badge badge-${record.status.toLowerCase()}">${record.status}</span>`
-                            ]).draw(false);
-                        });
-
-                        // Draw the table
-                        visitorRecordsTable.draw();
-                    } else {
-                        console.error('Failed to load visitor records:', data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading visitor records:', error);
-                });
-        }
-
-        // Add New Visitor
-        function addNewVisitor(form) {
-            const formData = new FormData(form);
-
-            fetch('/guard/add-visitor', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('WhatsApp message sent to flat owner. Awaiting approval...');
-                    form.reset();
-                    loadActiveVisitors();
-                    loadDashboardStats();
-                } else {
-                    alert('Failed to add visitor: ' + data.message);
+            // Close Profile Dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.guard-profile')) {
+                    document.querySelector('.profile-dropdown').classList.remove('show');
                 }
-            })
-            .catch(error => {
-                console.error('Error adding visitor:', error);
-                alert('An error occurred while adding the visitor');
             });
-        }
 
-        // View ID Proof
-        function viewIDProof(visitorId) {
-            fetch(`/guard/visitor/${visitorId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const visitor = data.visitor;
-                        $('#idProofImage').attr('src', visitor.idProofUrl);
-                        $('#livePhotoImage').attr('src', visitor.photoUrl || 'https://via.placeholder.com/150');
-                        $('#verificationName').text(visitor.name);
-                        $('#verificationType').text(visitor.idType);
-                        $('#verificationNumber').text(visitor.idNumber);
-                        $('#approveVerificationBtn').data('visitor-id', visitorId);
-
-                        const modal = new bootstrap.Modal(document.getElementById('idVerificationModal'));
-                        modal.show();
-                    } else {
-                        alert('Failed to load visitor details: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading visitor details:', error);
-                    alert('An error occurred while loading visitor details');
+            // Setup Event Listeners
+            function setupEventListeners() {
+                // New Visitor Form
+                $('#newVisitorForm').on('submit', function(e) {
+                    e.preventDefault();
+                    addNewVisitor(this);
                 });
-        }
 
-        // Mark Visitor Exit
-        function markExit(visitorId) {
-            if (confirm('Confirm visitor exit?')) {
-                fetch(`/guard/mark-exit/${visitorId}`, {
-                    method: 'POST'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Visitor exit marked successfully');
-                        loadActiveVisitors();
-                        loadVisitorRecords($('#recordsTimeFilter button.active').data('filter'));
-                        loadDashboardStats();
-                    } else {
-                        alert('Failed to mark exit: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error marking exit:', error);
-                    alert('An error occurred while marking exit');
+                // Refresh buttons
+                $('#refreshActiveVisitors').on('click', loadActiveVisitors);
+
+                // Time filter for records
+                $('#recordsTimeFilter button').on('click', function() {
+                    $('#recordsTimeFilter button').removeClass('active');
+                    $(this).addClass('active');
+                    loadVisitorRecords($(this).data('filter'));
+                });
+
+                // Logout button
+                $('#logoutBtn').on('click', function() {
+                    window.location.href = '/logout';
+                });
+
+                // Approve verification button
+                $('#approveVerificationBtn').on('click', function() {
+                    const visitorId = $(this).data('visitor-id');
+                    approveVisitor(visitorId);
                 });
             }
-        }
 
-        // Mark Pre-approved Entry
-        function markEntry(requestId) {
-            if (confirm('Confirm visitor entry?')) {
-                fetch(`/guard/mark-entry/${requestId}`, {
-                    method: 'POST'
+            // Load Guard Profile
+            function loadGuardProfile() {
+                fetch('/guard/profile')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            $('#guardName').text(data.guard.name);
+                            $('#guardId').text(data.guard.id);
+                            $('#guardEmail').text(data.guard.email);
+                            $('#guardPhone').text(data.guard.whatsapp); // Changed to whatsapp as per DB schema
+                            $('#guardShift').text(data.guard.shift || 'Not Assigned'); // Shift not in DB, fallback
+                        } else {
+                            console.error('Failed to load guard profile:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading guard profile:', error);
+                    });
+            }
+
+            // Load Dashboard Stats
+            function loadDashboardStats() {
+                fetch('/guard/stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            $('#activeVisitorsCount').text(data.stats.activeVisitors);
+                            $('#todayEntriesCount').text(data.stats.todayEntries);
+                            $('#preApprovedCount').text(data.stats.preApproved);
+                            $('#pendingApprovalsCount').text(data.stats.pendingApprovals);
+                        } else {
+                            console.error('Failed to load stats:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading stats:', error);
+                    });
+            }
+
+            // Load Active Visitors
+            function loadActiveVisitors() {
+                fetch('/guard/active-visitors')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            activeVisitorsTable.clear().draw();
+                            data.visitors.forEach(visitor => {
+                                activeVisitorsTable.row.add([
+                                    `<div class="d-flex align-items-center">
+                                        <img src="${visitor.photo || 'https://via.placeholder.com/32'}" class="rounded-circle me-2" width="32" height="32">
+                                        <div>
+                                            <div class="fw-bold">${visitor.name}</div>
+                                            <small class="text-muted">${visitor.phone}</small>
+                                        </div>
+                                    </div>`,
+                                    visitor.flatNumber,
+                                    visitor.purpose,
+                                    visitor.entryTime || '-', // Handle null entry_time
+                                    `<span class="badge badge-${visitor.status.toLowerCase()}">${visitor.status}</span>`,
+                                    `<button class="btn btn-sm btn-info me-1" onclick="viewIDProof('${visitor.id}')">
+                                        <i class="fas fa-id-card"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-success me-1" onclick="markExit('${visitor.id}')">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="denyVisitor('${visitor.id}')">
+                                        <i class="fas fa-times"></i>
+                                    </button>`
+                                ]).draw(false);
+                            });
+                            $('#activeVisitorsCount').text(data.visitors.length);
+                        } else {
+                            console.error('Failed to load active visitors:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading active visitors:', error);
+                    });
+            }
+
+            // Load Pre-approved Visitors
+            function loadPreApprovedVisitors() {
+                fetch('/guard/pre-approved')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            preApprovedTable.clear().draw();
+                            data.visitors.forEach(visitor => {
+                                preApprovedTable.row.add([
+                                    visitor.name,
+                                    visitor.flatNumber,
+                                    visitor.expectedTime || '-', // Handle null expected_date
+                                    visitor.purpose,
+                                    `<button class="btn btn-sm btn-success" onclick="markEntry('${visitor.id}')">
+                                        <i class="fas fa-check me-2"></i>Mark Entry
+                                    </button>`
+                                ]).draw(false);
+                            });
+                            $('#preApprovedCount').text(data.visitors.length);
+                        } else {
+                            console.error('Failed to load pre-approved visitors:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading pre-approved visitors:', error);
+                    });
+            }
+
+            // Load Visitor Records
+            function loadVisitorRecords(timeFilter) {
+                fetch(`/guard/visitor-records?filter=${timeFilter}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            visitorRecordsTable.clear().draw();
+                            data.records.forEach(record => {
+                                visitorRecordsTable.row.add([
+                                    record.visitorName,
+                                    record.flatNumber,
+                                    record.purpose,
+                                    record.entryTime || '-',
+                                    record.exitTime || '-',
+                                    `<span class="badge badge-${record.status.toLowerCase()}">${record.status}</span>`
+                                ]).draw(false);
+                            });
+                        } else {
+                            console.error('Failed to load visitor records:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading visitor records:', error);
+                    });
+            }
+
+            // Add New Visitor
+            function addNewVisitor(form) {
+                const formData = new FormData(form);
+                fetch('/guard/add-visitor', {
+                    method: 'POST',
+                    body: formData
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('Visitor entry marked successfully');
-                        loadPreApprovedVisitors();
+                        alert('WhatsApp message sent to flat owner. Awaiting approval...');
+                        form.reset();
                         loadActiveVisitors();
                         loadDashboardStats();
                     } else {
-                        alert('Failed to mark entry: ' + data.message);
+                        alert('Failed to add visitor: ' + data.message);
                     }
                 })
                 .catch(error => {
-                    console.error('Error marking entry:', error);
-                    alert('An error occurred while marking entry');
+                    console.error('Error adding visitor:', error);
+                    alert('An error occurred while adding the visitor');
                 });
             }
-        }
 
-        // Deny Visitor
-        function denyVisitor(visitorId) {
-            if (confirm('Are you sure you want to deny this visitor?')) {
-                fetch(`/guard/deny-visitor/${visitorId}`, {
-                    method: 'POST'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Visitor denied successfully');
-                        loadActiveVisitors();
-                        loadDashboardStats();
-                    } else {
-                        alert('Failed to deny visitor: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error denying visitor:', error);
-                    alert('An error occurred while denying visitor');
-                });
+            // View ID Proof
+            function viewIDProof(visitorId) {
+                fetch(`/guard/visitor/${visitorId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const visitor = data.visitor;
+                            $('#idProofImage').attr('src', visitor.idProofUrl);
+                            $('#livePhotoImage').attr('src', visitor.photoUrl || 'https://via.placeholder.com/150');
+                            $('#verificationName').text(visitor.name);
+                            $('#verificationType').text(visitor.idType || 'Not Provided');
+                            $('#verificationNumber').text(visitor.idNumber || 'Not Provided');
+                            $('#approveVerificationBtn').data('visitor-id', visitorId);
+                            const modal = new bootstrap.Modal(document.getElementById('idVerificationModal'));
+                            modal.show();
+                        } else {
+                            alert('Failed to load visitor details: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading visitor details:', error);
+                        alert('An error occurred while loading visitor details');
+                    });
             }
-        }
 
-        // Approve Visitor
-        function approveVisitor(visitorId) {
-            fetch(`/guard/approve-visitor/${visitorId}`, {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Identity verified successfully');
-                    bootstrap.Modal.getInstance(document.getElementById('idVerificationModal                    bootstrap.Modal.getInstance(document.getElementById('idVerificationModal')).hide();
-                    loadActiveVisitors();
-                } else {
-                    alert('Failed to verify visitor: ' + data.message);
+            // Mark Visitor Exit
+            function markExit(visitorId) {
+                if (confirm('Confirm visitor exit?')) {
+                    fetch(`/guard/mark-exit/${visitorId}`, {
+                        method: 'POST'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Visitor exit marked successfully');
+                            loadActiveVisitors();
+                            loadVisitorRecords($('#recordsTimeFilter button.active').data('filter'));
+                            loadDashboardStats();
+                        } else {
+                            alert('Failed to mark exit: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error marking exit:', error);
+                        alert('An error occurred while marking exit');
+                    });
                 }
-            })
-            .catch(error => {
-                console.error('Error verifying visitor:', error);
-                alert('An error occurred while verifying visitor');
-            });
-        }
+            }
 
-        // Add smooth scrolling to all links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
+            // Mark Pre-approved Entry
+            function markEntry(requestId) {
+                if (confirm('Confirm visitor entry?')) {
+                    fetch(`/guard/mark-entry/${requestId}`, {
+                        method: 'POST'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Visitor entry marked successfully');
+                            loadPreApprovedVisitors();
+                            loadActiveVisitors();
+                            loadDashboardStats();
+                        } else {
+                            alert('Failed to mark entry: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error marking entry:', error);
+                        alert('An error occurred while marking entry');
+                    });
+                }
+            }
+
+            // Deny Visitor
+            function denyVisitor(visitorId) {
+                if (confirm('Are you sure you want to deny this visitor?')) {
+                    fetch(`/guard/deny-visitor/${visitorId}`, {
+                        method: 'POST'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Visitor denied successfully');
+                            loadActiveVisitors();
+                            loadDashboardStats();
+                        } else {
+                            alert('Failed to deny visitor: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error denying visitor:', error);
+                        alert('An error occurred while denying visitor');
+                    });
+                }
+            }
+
+            // Approve Visitor
+            function approveVisitor(visitorId) {
+                fetch(`/guard/approve-visitor/${visitorId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Identity verified successfully');
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('idVerificationModal'));
+                        modal.hide();
+                        loadActiveVisitors();
+                    } else {
+                        alert('Failed to verify visitor: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error verifying visitor:', error);
+                    alert('An error occurred while verifying visitor');
+                });
+            }
+
+            // Add smooth scrolling to all links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
                 });
             });
-        });
-    </script>
+        </script>  
 </body>
 </html>
 

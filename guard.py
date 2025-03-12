@@ -1,78 +1,71 @@
-# from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, current_app
-# import os
+# from flask import Blueprint, jsonify, request, session
+# from flask_cors import CORS
 # import mysql.connector
-# import datetime
-# from werkzeug.utils import secure_filename
-# from whatsapp_api import send_whatsapp_approval_request  # Import from whatsapp_api.py
-#
-# # Create a blueprint for guard routes
+# from datetime import datetime
+# import os
+
+# # Initialize Blueprint
 # guard_bp = Blueprint('guard', __name__)
-#
-# # Database helper functions
+# CORS(guard_bp, supports_credentials=True)
+
+# # Database Configuration
+# db_config = {
+#     'host': 'localhost',
+#     'user': 'root',
+#     'password': 'root',  # Replace with your MySQL password
+#     'database': 'project'
+# }
+
+# # Helper function to get database connection
 # def get_db_connection():
-#     conn = mysql.connector.connect(
-#         host="localhost",
-#         user="root",
-#         password="root",  # Add your MySQL password here
-#         database="securegate"
-#     )
-#     return conn
-# 
-# def dict_factory(cursor):
-#     columns = [col[0] for col in cursor.description]
-#     return [dict(zip(columns, row)) for row in cursor.fetchall()]
-#
-# # Routes
-# @guard_bp.route('/')
-# def guard_dashboard():
-#     if 'logged_in' in session and session['role'] == 'guard':
-#         return render_template('guard.html')
-#     return redirect(url_for('index'))
-#
-# @guard_bp.route('/profile')
-# def get_guard_profile():
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#     return mysql.connector.connect(**db_config)
+
+# # Guard Profile
+# @guard_bp.route('/profile', methods=['GET'])
+# def guard_profile():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     guard_id = session.get('user_id')
 #     try:
 #         conn = get_db_connection()
 #         cursor = conn.cursor(dictionary=True)
-#         cursor.execute('SELECT id, name, email, phone, shift FROM guards WHERE id = %s', (session['user_id'],))
+#         cursor.execute("SELECT id, name, email, whatsapp FROM guard WHERE id = %s", (guard_id,))
 #         guard = cursor.fetchone()
 #         cursor.close()
 #         conn.close()
-#
+
 #         if guard:
 #             return jsonify({'success': True, 'guard': guard})
-#         return jsonify({'success': False, 'message': 'Guard not found'})
+#         return jsonify({'success': False, 'message': 'Guard not found'}), 404
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/stats')
-# def get_stats():
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Guard Dashboard Stats
+# @guard_bp.route('/stats', methods=['GET'])
+# def guard_stats():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
 #     try:
 #         conn = get_db_connection()
-#         cursor = conn.cursor()
-#         today = datetime.datetime.now().strftime('%Y-%m-%d')
-#
-#         cursor.execute('SELECT COUNT(*) FROM visitors WHERE exit_time IS NULL')
-#         active_visitors = cursor.fetchone()[0]
-#
-#         cursor.execute('SELECT COUNT(*) FROM visitors WHERE DATE(entry_time) = %s', (today,))
-#         today_entries = cursor.fetchone()[0]
-#
-#         cursor.execute('SELECT COUNT(*) FROM pre_approved_visitors WHERE DATE(expected_time) >= %s AND status = "approved"', (today,))
-#         pre_approved = cursor.fetchone()[0]
-#
-#         cursor.execute('SELECT COUNT(*) FROM visitors WHERE status = "pending"')
-#         pending_approvals = cursor.fetchone()[0]
-#
+#         cursor = conn.cursor(dictionary=True)
+
+#         cursor.execute("SELECT COUNT(*) as activeVisitors FROM visitors WHERE status = 'approved' AND exit_time IS NULL")
+#         active_visitors = cursor.fetchone()['activeVisitors']
+
+#         cursor.execute("SELECT COUNT(*) as todayEntries FROM visitors WHERE DATE(entry_time) = CURDATE() AND status = 'approved'")
+#         today_entries = cursor.fetchone()['todayEntries']
+
+#         cursor.execute("SELECT COUNT(*) as preApproved FROM visitors WHERE status = 'pre-approved'")
+#         pre_approved = cursor.fetchone()['preApproved']
+
+#         cursor.execute("SELECT COUNT(*) as pendingApprovals FROM visitors WHERE status = 'pending'")
+#         pending_approvals = cursor.fetchone()['pendingApprovals']
+
 #         cursor.close()
 #         conn.close()
-#
+
 #         return jsonify({
 #             'success': True,
 #             'stats': {
@@ -83,255 +76,572 @@
 #             }
 #         })
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/active-visitors')
-# def get_active_visitors():
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Active Visitors
+# @guard_bp.route('/active-visitors', methods=['GET'])
+# def active_visitors():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
 #     try:
 #         conn = get_db_connection()
 #         cursor = conn.cursor(dictionary=True)
-#         cursor.execute('''
-#             SELECT v.id, v.name, v.phone, v.flat_number as flatNumber, v.purpose,
-#                    v.entry_time as entryTime, v.status, v.photo_url as photo
+#         cursor.execute("""
+#             SELECT v.id, v.visitor_name as name, v.contact_number as phone, f.flat_number as flatNumber, 
+#                    v.purpose, v.entry_time as entryTime, v.status
 #             FROM visitors v
-#             WHERE v.exit_time IS NULL
-#             ORDER BY v.entry_time DESC
-#         ''')
+#             JOIN flat_owner f ON v.owner_id = f.id
+#             WHERE v.status = 'approved' AND v.exit_time IS NULL
+#         """)
 #         visitors = cursor.fetchall()
 #         cursor.close()
 #         conn.close()
-#
-#         for visitor in visitors:
-#             if visitor['entryTime']:
-#                 visitor['entryTime'] = visitor['entryTime'].strftime('%I:%M %p') if isinstance(visitor['entryTime'], datetime.datetime) else datetime.datetime.fromisoformat(visitor['entryTime']).strftime('%I:%M %p')
-#
+
 #         return jsonify({'success': True, 'visitors': visitors})
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/pre-approved')
-# def get_pre_approved():
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Pre-approved Visitors
+# @guard_bp.route('/pre-approved', methods=['GET'])
+# def pre_approved_visitors():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
 #     try:
 #         conn = get_db_connection()
 #         cursor = conn.cursor(dictionary=True)
-#         today = datetime.datetime.now().strftime('%Y-%m-%d')
-#         cursor.execute('''
-#             SELECT id, visitor_name as name, flat_number as flatNumber,
-#                    expected_time as expectedTime, purpose
-#             FROM pre_approved_visitors
-#             WHERE DATE(expected_time) >= %s AND status = "approved" AND entry_marked = 0
-#             ORDER BY expected_time ASC
-#         ''', (today,))
+#         cursor.execute("""
+#             SELECT v.id, v.visitor_name as name, f.flat_number as flatNumber, v.purpose, 
+#                    v.expected_date as expectedTime
+#             FROM visitors v
+#             JOIN flat_owner f ON v.owner_id = f.id
+#             WHERE v.status = 'pre-approved'
+#         """)
 #         visitors = cursor.fetchall()
 #         cursor.close()
 #         conn.close()
-#
-#         for visitor in visitors:
-#             if visitor['expectedTime']:
-#                 visitor['expectedTime'] = visitor['expectedTime'].strftime('%I:%M %p') if isinstance(visitor['expectedTime'], datetime.datetime) else datetime.datetime.fromisoformat(visitor['expectedTime']).strftime('%I:%M %p')
-#
+
 #         return jsonify({'success': True, 'visitors': visitors})
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/visitor-records')
-# def get_visitor_records():
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Visitor Records
+# @guard_bp.route('/visitor-records', methods=['GET'])
+# def visitor_records():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
 #     time_filter = request.args.get('filter', 'today')
 #     try:
 #         conn = get_db_connection()
 #         cursor = conn.cursor(dictionary=True)
-#         today = datetime.datetime.now().date()
-#         start_date = today if time_filter == 'today' else today - datetime.timedelta(days=7 if time_filter == 'week' else 30)
-#
-#         cursor.execute('''
-#             SELECT name as visitorName, flat_number as flatNumber, purpose,
-#                    entry_time as entryTime, exit_time as exitTime,
-#                    CASE
-#                        WHEN exit_time IS NOT NULL THEN "Completed"
-#                        WHEN status = "approved" THEN "Approved"
-#                        WHEN status = "pending" THEN "Pending"
-#                        ELSE status
-#                    END as status
-#             FROM visitors
-#             WHERE DATE(entry_time) >= %s
-#             ORDER BY entry_time DESC
-#         ''', (start_date.isoformat(),))
+
+#         query = """
+#             SELECT v.visitor_name as visitorName, f.flat_number as flatNumber, v.purpose, 
+#                    v.entry_time as entryTime, v.exit_time as exitTime, v.status
+#             FROM visitors v
+#             JOIN flat_owner f ON v.owner_id = f.id
+#             WHERE {}
+#         """
+#         if time_filter == 'today':
+#             condition = "DATE(v.entry_time) = CURDATE()"
+#         elif time_filter == 'week':
+#             condition = "YEARWEEK(v.entry_time, 1) = YEARWEEK(CURDATE(), 1)"
+#         elif time_filter == 'month':
+#             condition = "MONTH(v.entry_time) = MONTH(CURDATE()) AND YEAR(v.entry_time) = YEAR(CURDATE())"
+#         else:
+#             condition = "1=1"  # Default to all records if filter is invalid
+
+#         cursor.execute(query.format(condition))
 #         records = cursor.fetchall()
 #         cursor.close()
 #         conn.close()
-#
-#         for record in records:
-#             if record['entryTime']:
-#                 record['entryTime'] = record['entryTime'].strftime('%I:%M %p') if isinstance(record['entryTime'], datetime.datetime) else datetime.datetime.fromisoformat(record['entryTime']).strftime('%I:%M %p')
-#             if record['exitTime']:
-#                 record['exitTime'] = record['exitTime'].strftime('%I:%M %p') if isinstance(record['exitTime'], datetime.datetime) else datetime.datetime.fromisoformat(record['exitTime']).strftime('%I:%M %p')
-#
+
 #         return jsonify({'success': True, 'records': records})
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/visitor/<visitor_id>')
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Add New Visitor
+# @guard_bp.route('/add-visitor', methods=['POST'])
+# def add_visitor():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     data = request.form
+#     visitor_name = data.get('visitorName')
+#     contact_number = data.get('contactNumber')
+#     flat_number = data.get('flatNumber')
+#     purpose = data.get('purpose')
+#     id_proof = request.files.get('idProof')
+
+#     if not all([visitor_name, contact_number, flat_number, purpose, id_proof]):
+#         return jsonify({'success': False, 'message': 'All fields are required'}), 400
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+
+#         # Check if flat_number exists in flat_owner
+#         cursor.execute("SELECT id FROM flat_owner WHERE flat_number = %s", (flat_number,))
+#         owner = cursor.fetchone()
+#         if not owner:
+#             return jsonify({'success': False, 'message': 'Flat number does not exist'}), 404
+#         owner_id = owner[0]
+
+#         # Save ID proof file
+#         upload_folder = 'static/uploads'
+#         os.makedirs(upload_folder, exist_ok=True)
+#         id_proof_path = os.path.join(upload_folder, id_proof.filename)
+#         id_proof.save(id_proof_path)
+
+#         cursor.execute("""
+#             INSERT INTO visitors (owner_id, visitor_name, contact_number, purpose, id_proof, status)
+#             VALUES (%s, %s, %s, %s, %s, 'pending')
+#         """, (owner_id, visitor_name, contact_number, purpose, id_proof_path))
+
+#         conn.commit()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'message': 'Visitor added successfully'})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # View Visitor Details
+# @guard_bp.route('/visitor/<int:visitor_id>', methods=['GET'])
 # def get_visitor(visitor_id):
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
 #     try:
 #         conn = get_db_connection()
 #         cursor = conn.cursor(dictionary=True)
-#         cursor.execute('''
-#             SELECT id, name, phone, flat_number as flatNumber, purpose,
-#                    id_proof_url as idProofUrl, photo_url as photoUrl,
-#                    id_type as idType, id_number as idNumber
-#             FROM visitors
-#             WHERE id = %s
-#         ''', (visitor_id,))
+#         cursor.execute("""
+#             SELECT v.id, v.visitor_name as name, v.contact_number as phone, v.purpose, 
+#                    v.id_proof as idProofUrl, v.status
+#             FROM visitors v
+#             WHERE v.id = %s
+#         """, (visitor_id,))
 #         visitor = cursor.fetchone()
 #         cursor.close()
 #         conn.close()
-#
+
 #         if visitor:
 #             return jsonify({'success': True, 'visitor': visitor})
-#         return jsonify({'success': False, 'message': 'Visitor not found'})
+#         return jsonify({'success': False, 'message': 'Visitor not found'}), 404
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/add-visitor', methods=['POST'])
-# def add_visitor():
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
-#     try:
-#         visitor_name = request.form.get('visitorName')
-#         contact_number = request.form.get('contactNumber')
-#         flat_number = request.form.get('flatNumber')
-#         purpose = request.form.get('purpose')
-#         id_proof = request.files.get('idProof')
-#         id_proof_url = ''
-#
-#         if id_proof and id_proof.filename:
-#             filename = secure_filename(id_proof.filename)
-#             uploads_dir = os.path.join(current_app.root_path, 'static', 'uploads')
-#             os.makedirs(uploads_dir, exist_ok=True)
-#             file_path = os.path.join(uploads_dir, filename)
-#             id_proof.save(file_path)
-#             id_proof_url = f'/static/uploads/{filename}'
-#
-#         conn = get_db_connection()
-#         cursor = conn.cursor()
-#         current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-#
-#         cursor.execute('''
-#             INSERT INTO visitors (name, phone, flat_number, purpose, id_proof_url, entry_time, status)
-#             VALUES (%s, %s, %s, %s, %s, %s, %s)
-#         ''', (visitor_name, contact_number, flat_number, purpose, id_proof_url, current_time, 'pending'))
-#
-#         conn.commit()
-#         visitor_id = cursor.lastrowid
-#
-#         cursor.execute('SELECT phone FROM flat_owners WHERE flat_number = %s', (flat_number,))
-#         owner = cursor.fetchone()
-#
-#         cursor.close()
-#         conn.close()
-#
-#         if owner:
-#             owner_phone = owner[0]
-#             success = send_whatsapp_approval_request(owner_phone, visitor_name, flat_number, purpose, visitor_id)
-#             if success:
-#                 return jsonify({'success': True, 'message': 'Visitor added successfully. Approval request sent via WhatsApp.'})
-#             else:
-#                 return jsonify({'success': False, 'message': 'Visitor added but failed to send WhatsApp message'})
-#         else:
-#             return jsonify({'success': False, 'message': 'Flat owner not found'})
-#
-#     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/mark-exit/<visitor_id>', methods=['POST'])
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Mark Visitor Exit
+# @guard_bp.route('/mark-exit/<int:visitor_id>', methods=['POST'])
 # def mark_exit(visitor_id):
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
 #     try:
 #         conn = get_db_connection()
 #         cursor = conn.cursor()
-#         current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-#         cursor.execute('UPDATE visitors SET exit_time = %s, status = "completed" WHERE id = %s', (current_time, visitor_id))
+#         cursor.execute("""
+#             UPDATE visitors SET exit_time = %s WHERE id = %s AND status = 'approved'
+#         """, (datetime.now(), visitor_id))
+#         if cursor.rowcount == 0:
+#             return jsonify({'success': False, 'message': 'Visitor not found or not approved'}), 404
 #         conn.commit()
 #         cursor.close()
 #         conn.close()
-#         return jsonify({'success': True, 'message': 'Visitor exit marked successfully'})
+
+#         return jsonify({'success': True, 'message': 'Exit marked successfully'})
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/mark-entry/<request_id>', methods=['POST'])
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Mark Pre-approved Entry
+# @guard_bp.route('/mark-entry/<int:request_id>', methods=['POST'])
 # def mark_entry(request_id):
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             UPDATE visitors SET entry_time = %s, status = 'approved' 
+#             WHERE id = %s AND status = 'pre-approved'
+#         """, (datetime.now(), request_id))
+#         if cursor.rowcount == 0:
+#             return jsonify({'success': False, 'message': 'Pre-approved visitor not found'}), 404
+#         conn.commit()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'message': 'Entry marked successfully'})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Deny Visitor
+# @guard_bp.route('/deny-visitor/<int:visitor_id>', methods=['POST'])
+# def deny_visitor(visitor_id):
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             UPDATE visitors SET status = 'denied' WHERE id = %s AND status = 'pending'
+#         """, (visitor_id,))
+#         if cursor.rowcount == 0:
+#             return jsonify({'success': False, 'message': 'Pending visitor not found'}), 404
+#         conn.commit()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'message': 'Visitor denied successfully'})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Approve Visitor
+# @guard_bp.route('/approve-visitor/<int:visitor_id>', methods=['POST'])
+# def approve_visitor(visitor_id):
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             UPDATE visitors SET status = 'approved', entry_time = %s 
+#             WHERE id = %s AND status = 'pending'
+#         """, (datetime.now(), visitor_id))
+#         if cursor.rowcount == 0:
+#             return jsonify({'success': False, 'message': 'Pending visitor not found'}), 404
+#         conn.commit()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'message': 'Visitor approved successfully'})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+# from flask_cors import CORS
+# import mysql.connector
+# from datetime import datetime
+# import os
+
+# # Initialize Blueprint
+# guard_bp = Blueprint('guard', __name__)
+# CORS(guard_bp, supports_credentials=True)
+
+# # Database Configuration
+# db_config = {
+#     'host': 'localhost',
+#     'user': 'root',
+#     'password': 'your_actual_password',  # Replace with your MySQL password
+#     'database': 'project'
+# }
+
+# # Helper function to get database connection
+# def get_db_connection():
+#     return mysql.connector.connect(**db_config)
+
+# # Guard Profile
+# @guard_bp.route('/profile', methods=['GET'])
+# def guard_profile():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     guard_id = session.get('user_id')
 #     try:
 #         conn = get_db_connection()
 #         cursor = conn.cursor(dictionary=True)
-#         cursor.execute('SELECT visitor_name, flat_number, purpose, owner_id FROM pre_approved_visitors WHERE id = %s', (request_id,))
-#         pre_approved = cursor.fetchone()
-#
-#         if not pre_approved:
-#             cursor.close()
-#             conn.close()
-#             return jsonify({'success': False, 'message': 'Pre-approved visitor not found'})
-#
-#         current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-#         cursor.execute('''
-#             INSERT INTO visitors (name, flat_number, purpose, entry_time, status, owner_id)
-#             VALUES (%s, %s, %s, %s, %s, %s)
-#         ''', (pre_approved['visitor_name'], pre_approved['flat_number'], pre_approved['purpose'], current_time, 'approved', pre_approved['owner_id']))
-#
-#         cursor.execute('UPDATE pre_approved_visitors SET entry_marked = 1 WHERE id = %s', (request_id,))
-#         conn.commit()
+#         cursor.execute("SELECT id, name, email, whatsapp FROM guard WHERE id = %s", (guard_id,))
+#         guard = cursor.fetchone()
 #         cursor.close()
 #         conn.close()
-#         return jsonify({'success': True, 'message': 'Visitor entry marked successfully'})
+
+#         if guard:
+#             return jsonify({'success': True, 'guard': guard})
+#         return jsonify({'success': False, 'message': 'Guard not found'}), 404
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/approve-visitor/<visitor_id>', methods=['POST'])
-# def approve_visitor(visitor_id):
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Guard Dashboard Stats
+# @guard_bp.route('/stats', methods=['GET'])
+# def guard_stats():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor(dictionary=True)
+
+#         cursor.execute("SELECT COUNT(*) as activeVisitors FROM visitors WHERE status = 'approved' AND exit_time IS NULL")
+#         active_visitors = cursor.fetchone()['activeVisitors']
+
+#         cursor.execute("SELECT COUNT(*) as todayEntries FROM visitors WHERE DATE(entry_time) = CURDATE() AND status = 'approved'")
+#         today_entries = cursor.fetchone()['todayEntries']
+
+#         cursor.execute("SELECT COUNT(*) as preApproved FROM visitors WHERE status = 'pre-approved'")
+#         pre_approved = cursor.fetchone()['preApproved']
+
+#         cursor.execute("SELECT COUNT(*) as pendingApprovals FROM visitors WHERE status = 'pending'")
+#         pending_approvals = cursor.fetchone()['pendingApprovals']
+
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({
+#             'success': True,
+#             'stats': {
+#                 'activeVisitors': active_visitors,
+#                 'todayEntries': today_entries,
+#                 'preApproved': pre_approved,
+#                 'pendingApprovals': pending_approvals
+#             }
+#         })
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Active Visitors
+# @guard_bp.route('/active-visitors', methods=['GET'])
+# def active_visitors():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor(dictionary=True)
+#         cursor.execute("""
+#             SELECT v.id, v.visitor_name as name, v.contact_number as phone, f.flat_number as flatNumber, 
+#                    v.purpose, v.entry_time as entryTime, v.status
+#             FROM visitors v
+#             JOIN flat_owner f ON v.owner_id = f.id
+#             WHERE v.status = 'approved' AND v.exit_time IS NULL
+#         """)
+#         visitors = cursor.fetchall()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'visitors': visitors})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Pre-approved Visitors
+# @guard_bp.route('/pre-approved', methods=['GET'])
+# def pre_approved_visitors():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor(dictionary=True)
+#         cursor.execute("""
+#             SELECT v.id, v.visitor_name as name, f.flat_number as flatNumber, v.purpose, 
+#                    v.expected_date as expectedTime
+#             FROM visitors v
+#             JOIN flat_owner f ON v.owner_id = f.id
+#             WHERE v.status = 'pre-approved'
+#         """)
+#         visitors = cursor.fetchall()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'visitors': visitors})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Visitor Records
+# @guard_bp.route('/visitor-records', methods=['GET'])
+# def visitor_records():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     time_filter = request.args.get('filter', 'today')
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor(dictionary=True)
+
+#         query = """
+#             SELECT v.visitor_name as visitorName, f.flat_number as flatNumber, v.purpose, 
+#                    v.entry_time as entryTime, v.exit_time as exitTime, v.status
+#             FROM visitors v
+#             JOIN flat_owner f ON v.owner_id = f.id
+#             WHERE {}
+#         """
+#         if time_filter == 'today':
+#             condition = "DATE(v.entry_time) = CURDATE()"
+#         elif time_filter == 'week':
+#             condition = "YEARWEEK(v.entry_time, 1) = YEARWEEK(CURDATE(), 1)"
+#         elif time_filter == 'month':
+#             condition = "MONTH(v.entry_time) = MONTH(CURDATE()) AND YEAR(v.entry_time) = YEAR(CURDATE())"
+#         else:
+#             condition = "1=1"  # Default to all records if filter is invalid
+
+#         cursor.execute(query.format(condition))
+#         records = cursor.fetchall()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'records': records})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Add New Visitor
+# @guard_bp.route('/add-visitor', methods=['POST'])
+# def add_visitor():
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     data = request.form
+#     visitor_name = data.get('visitorName')
+#     contact_number = data.get('contactNumber')
+#     flat_number = data.get('flatNumber')
+#     purpose = data.get('purpose')
+#     id_proof = request.files.get('idProof')
+
+#     if not all([visitor_name, contact_number, flat_number, purpose, id_proof]):
+#         return jsonify({'success': False, 'message': 'All fields are required'}), 400
+
 #     try:
 #         conn = get_db_connection()
 #         cursor = conn.cursor()
-#         cursor.execute('UPDATE visitors SET status = "approved" WHERE id = %s', (visitor_id,))
+
+#         # Check if flat_number exists in flat_owner
+#         cursor.execute("SELECT id FROM flat_owner WHERE flat_number = %s", (flat_number,))
+#         owner = cursor.fetchone()
+#         if not owner:
+#             return jsonify({'success': False, 'message': 'Flat number does not exist'}), 404
+#         owner_id = owner[0]
+
+#         # Save ID proof file
+#         upload_folder = 'static/uploads'
+#         os.makedirs(upload_folder, exist_ok=True)
+#         id_proof_path = os.path.join(upload_folder, id_proof.filename)
+#         id_proof.save(id_proof_path)
+
+#         cursor.execute("""
+#             INSERT INTO visitors (owner_id, visitor_name, contact_number, purpose, id_proof, status)
+#             VALUES (%s, %s, %s, %s, %s, 'pending')
+#         """, (owner_id, visitor_name, contact_number, purpose, id_proof_path))
+
 #         conn.commit()
 #         cursor.close()
 #         conn.close()
-#         return jsonify({'success': True, 'message': 'Visitor approved successfully'})
+
+#         return jsonify({'success': True, 'message': 'Visitor added successfully'})
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
-#
-# @guard_bp.route('/deny-visitor/<visitor_id>', methods=['POST'])
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # View Visitor Details
+# @guard_bp.route('/visitor/<int:visitor_id>', methods=['GET'])
+# def get_visitor(visitor_id):
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor(dictionary=True)
+#         cursor.execute("""
+#             SELECT v.id, v.visitor_name as name, v.contact_number as phone, v.purpose, 
+#                    v.id_proof as idProofUrl, v.status
+#             FROM visitors v
+#             WHERE v.id = %s
+#         """, (visitor_id,))
+#         visitor = cursor.fetchone()
+#         cursor.close()
+#         conn.close()
+
+#         if visitor:
+#             return jsonify({'success': True, 'visitor': visitor})
+#         return jsonify({'success': False, 'message': 'Visitor not found'}), 404
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Mark Visitor Exit
+# @guard_bp.route('/mark-exit/<int:visitor_id>', methods=['POST'])
+# def mark_exit(visitor_id):
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             UPDATE visitors SET exit_time = %s WHERE id = %s AND status = 'approved'
+#         """, (datetime.now(), visitor_id))
+#         if cursor.rowcount == 0:
+#             return jsonify({'success': False, 'message': 'Visitor not found or not approved'}), 404
+#         conn.commit()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'message': 'Exit marked successfully'})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Mark Pre-approved Entry
+# @guard_bp.route('/mark-entry/<int:request_id>', methods=['POST'])
+# def mark_entry(request_id):
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             UPDATE visitors SET entry_time = %s, status = 'approved' 
+#             WHERE id = %s AND status = 'pre-approved'
+#         """, (datetime.now(), request_id))
+#         if cursor.rowcount == 0:
+#             return jsonify({'success': False, 'message': 'Pre-approved visitor not found'}), 404
+#         conn.commit()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'message': 'Entry marked successfully'})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Deny Visitor
+# @guard_bp.route('/deny-visitor/<int:visitor_id>', methods=['POST'])
 # def deny_visitor(visitor_id):
-#     if 'logged_in' not in session or session['role'] != 'guard':
-#         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
-#
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
 #     try:
 #         conn = get_db_connection()
 #         cursor = conn.cursor()
-#         current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-#         cursor.execute('UPDATE visitors SET status = "denied", exit_time = %s WHERE id = %s', (current_time, visitor_id))
+#         cursor.execute("""
+#             UPDATE visitors SET status = 'denied' WHERE id = %s AND status = 'pending'
+#         """, (visitor_id,))
+#         if cursor.rowcount == 0:
+#             return jsonify({'success': False, 'message': 'Pending visitor not found'}), 404
 #         conn.commit()
 #         cursor.close()
 #         conn.close()
+
 #         return jsonify({'success': True, 'message': 'Visitor denied successfully'})
 #     except Exception as e:
-#         return jsonify({'success': False, 'message': str(e)})
+#         return jsonify({'success': False, 'message': str(e)}), 500
+
+# # Approve Visitor
+# @guard_bp.route('/approve-visitor/<int:visitor_id>', methods=['POST'])
+# def approve_visitor(visitor_id):
+#     if 'logged_in' not in session or session.get('role') != 'guard':
+#         return jsonify({'success': False, 'message': 'Unauthorized access'}), 401
+
+#     try:
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
+#         cursor.execute("""
+#             UPDATE visitors SET status = 'approved', entry_time = %s 
+#             WHERE id = %s AND status = 'pending'
+#         """, (datetime.now(), visitor_id))
+#         if cursor.rowcount == 0:
+#             return jsonify({'success': False, 'message': 'Pending visitor not found'}), 404
+#         conn.commit()
+#         cursor.close()
+#         conn.close()
+
+#         return jsonify({'success': True, 'message': 'Visitor approved successfully'})
+#     except Exception as e:
+#         return jsonify({'success': False, 'message': str(e)}), 500

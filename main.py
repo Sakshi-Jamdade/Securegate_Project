@@ -1,12 +1,20 @@
 from flask import Flask, render_template, session, redirect, request, jsonify
 from flask_cors import CORS
+from admin import admin_bp  # Import admin blueprint
+from guard import guard_bp  # Import guard blueprint
 from flat_owner import get_flat_owner_dashboard_stats, add_family_member, get_family_members, get_visitor_records, \
     get_pre_approved_visitors, pre_approve_visitor
 
+# Initialize Flask App
 app = Flask(__name__)
 app.secret_key = 's3cr3t_k3y_123!@#'
 CORS(app, supports_credentials=True)
 
+# Register Blueprints
+app.register_blueprint(admin_bp, url_prefix='/admin')
+app.register_blueprint(guard_bp, url_prefix='/guard')
+
+# ----------------------------------**** General Routes ****-----------------------------------
 @app.route('/')
 def index():
     return render_template('signup.html')
@@ -42,6 +50,7 @@ def verify_otp_route():
     data = request.get_json()
     return verify_otp(data)
 
+# Dashboard Routes
 @app.route('/admin')
 def admin_dashboard():
     if 'logged_in' in session and session.get('role') == 'admin':
@@ -60,6 +69,7 @@ def flat_owner_dashboard():
         return render_template('Flat-Owner.html')
     return redirect('/')
 
+# ----------------------------------**** Flat Owner Routes ****-----------------------------------
 @app.route('/flat_owner_dashboard_stats', methods=['GET'])
 def fetch_dashboard_stats():
     return get_flat_owner_dashboard_stats()
@@ -74,32 +84,28 @@ def family_members():
 
 @app.route('/get_pre_approved_visitors', methods=['GET'])
 def handle_pre_approve():
-        return get_pre_approved_visitors()
+    return get_pre_approved_visitors()
 
 @app.route('/pre_approve', methods=['POST'])
 def pre_approve():
-        return pre_approve_visitor()
+    return pre_approve_visitor()
 
 @app.route('/visitor_records', methods=['GET'])
-def visitor_records():
+def flat_owner_visitor_records():
     return get_visitor_records()
-#
-# @app.route('/pre_approve', methods=['GET'])
-# def pre_approved_get():
-#     return get_pre_approved_visitors()
-#
-# @app.route('/pre_approve', methods=['POST'])
-# def pre_approved_post():
-#     return create_pre_approved_visitor()
-#
-# @app.route('/cancel_pre_approval', methods=['POST'])
-# def cancel_pre_approved():
-#     return cancel_pre_approval()
 
-@app.route('/logout')
+# ----------------------------------**** Guard Routes ****-----------------------------------
+# Guard routes are handled in guard_bp (guard.py), e.g., /guard/profile, /guard/stats, etc.
+
+# ----------------------------------**** Admin Routes ****-----------------------------------
+# Admin routes are handled in admin_bp (admin.py), e.g., /admin/stats, /admin/today-visitors, etc.
+
+# ----------------------------------**** Logout Route ****-----------------------------------
+@app.route('/logout', methods=['GET'])
 def logout():
     session.clear()
     return redirect('/')
 
+# ----------------------------------**** Run Application ****-----------------------------------
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
