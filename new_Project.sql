@@ -37,8 +37,27 @@ CREATE TABLE flat_owner (
     password VARCHAR(255) NOT NULL
 );
 
-SELECT * FROM flat_owner;
+SELECT * FROM visitors;
 
+-- pre_approved_count-- 
+SELECT COUNT(*) AS pre_approved_count
+FROM visitors
+WHERE status = 'pre-approved';
+
+-- active_visitors_count-- 
+SELECT COUNT(*) AS active_visitors_count
+FROM visitors
+WHERE status = 'approved' AND exit_time IS NULL;
+
+-- todays_visitors_count-- 
+SELECT COUNT(*) AS todays_visitors_count
+FROM visitors
+WHERE DATE(entry_time) = CURDATE();
+
+-- pending_approvals_count-- 
+SELECT COUNT(*) AS pending_approvals_count
+FROM visitors
+WHERE status = 'pending';
 
 CREATE TABLE visitors (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -54,7 +73,7 @@ CREATE TABLE visitors (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES flat_owner(id) ON DELETE CASCADE
 );
-
+ALTER TABLE visitors ADD COLUMN id_proof VARCHAR(255) NULL;
 
 CREATE TABLE family_members (
     id INT AUTO_INCREMENT PRIMARY KEY,
